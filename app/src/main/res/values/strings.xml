@@ -1,3 +1,9 @@
 <resources>
     <string name="app_name">Jphacks_android</string>
+    <string name="placeholder">placeholder</string>
+    <string name="number_placeholder">1</string>
+    <string name="date_placeholder">3日後</string>
+    <string name="plus">+</string>
+    <string name="minus">-</string>
+    <string name="snackbar_failed">failed to connect servers</string>
 </resources>
