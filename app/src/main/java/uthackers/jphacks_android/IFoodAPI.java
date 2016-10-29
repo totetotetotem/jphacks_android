@@ -2,6 +2,8 @@ package uthackers.jphacks_android;
 
 import retrofit2.Call;
 import retrofit2.http.GET;
+import retrofit2.http.Header;
+import retrofit2.http.Headers;
 import retrofit2.http.Path;
 
 /**
@@ -9,7 +11,6 @@ import retrofit2.http.Path;
  */
 
 interface IFoodAPI {
-
-    @GET("/item/{number}")
-    Call<ItemContainer> getFoodInfoWithUrl(@Path("number") String familyId);
+    @GET("/item/list")
+    Call<ItemContainer> getItemList(@Header("x-access-token") String token);
 }

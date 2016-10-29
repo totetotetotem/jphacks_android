@@ -1,5 +1,7 @@
 package uthackers.jphacks_android;
 
+import android.support.annotation.Nullable;
+
 import com.google.gson.annotations.Expose;
 import com.google.gson.annotations.SerializedName;
 
@@ -11,19 +13,20 @@ import java.util.Map;
  */
 
 class Item {
-    @SerializedName("ItemId")
+    @SerializedName("user_item_id")
     @Expose
+    private Integer userItemId;
+
+    @SerializedName("item_id")
+    @Expose
+    @Nullable
     private Integer itemId;
 
-    @SerializedName("FamilyId")
-    @Expose
-    private Integer familyId;
-
-    @SerializedName("ItemName")
+    @SerializedName("item_name")
     @Expose
     private String itemName;
 
-    @SerializedName("ExpireDate")
+    @SerializedName("expire_date")
     @Expose
     private String expireDate;
 

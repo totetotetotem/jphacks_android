@@ -11,9 +11,12 @@ import java.util.List;
  */
 
 class ItemContainer {
-    @SerializedName("Items")
+    @SerializedName("user_item")
     @Expose
     private List<Item> items = new ArrayList<>();
+    @SerializedName("meta")
+    @Expose
+    private Meta meta;
 
     List<Item> getItems() {
         return items;
