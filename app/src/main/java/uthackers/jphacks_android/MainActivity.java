@@ -8,9 +8,15 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ListView;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
+import java.net.ServerSocket;
+import java.net.Socket;
 import java.net.URLEncoder;
 import java.util.List;
+
 
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
@@ -20,14 +26,18 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements Runnable {
 
     Call<ItemContainer> call;
+    int port = 22222;
+    volatile Thread runner = null;
     private ItemAdapter mAdapter;
     private ListView mListView;
     //    private SwipeRefreshLayout mSwipeRefreshLayout;
     private String familyId;
     private WebView mWebView;
+    private ServerSocket mServer;
+    private Socket mSocket;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,6 +72,10 @@ public class MainActivity extends AppCompatActivity {
         mListView.setAdapter(mAdapter);
         reloadFoods();
 
+        if (runner == null) {
+            runner = new Thread();
+            runner.start();
+        }
         /*
         mSwipeRefreshLayout = (SwipeRefreshLayout) findViewById(R.id.swipelayout);
         mSwipeRefreshLayout.setOnRefreshListener(mOnRefreshListner);
@@ -121,6 +135,25 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+    }
+
+    @Override
+    public void run() {
+        try {
+            mServer = new ServerSocket(port);
+            mSocket = mServer.accept();
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(mSocket.getInputStream()));
+            String message;
+            while ((message = reader.readLine()) != null) {
+                if (message == "SYN") {
+                    //TODO なんかかく
+                }
+            }
+        } catch (IOException e) {
+            Snackbar.make(mListView, R.string.snackbar_failed, Snackbar.LENGTH_SHORT).show();
+            e.printStackTrace();
+        }
     }
 
 }
