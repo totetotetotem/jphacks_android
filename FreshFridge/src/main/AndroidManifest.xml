@@ -33,14 +33,14 @@
             <meta-data
                 android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED"
                 android:resource="@xml/device_filter" />
-            <meta-data
-                android:name="apiKey"
-                android:value="${api_key}" />
-
         </activity>
         <activity
             android:name=".QRCodeActivity"
             android:screenOrientation="landscape" />
+
+        <meta-data
+            android:name="api_key"
+            android:value="${api_key}" />
 
     </application>
 

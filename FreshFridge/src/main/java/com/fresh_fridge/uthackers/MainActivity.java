@@ -6,8 +6,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.hardware.usb.UsbManager;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Handler;
 import android.os.Bundle;
 import android.os.PowerManager;
@@ -26,10 +28,17 @@ import com.google.android.gms.appindexing.Action;
 import com.google.android.gms.appindexing.AppIndex;
 import com.google.android.gms.appindexing.Thing;
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.api.client.extensions.android.http.AndroidHttp;
+import com.google.api.client.json.gson.GsonFactory;
+import com.google.api.services.translate.Translate;
+import com.google.api.services.translate.model.TranslationsListResponse;
 import com.physicaloid.lib.Physicaloid;
 
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.Array;
 import java.net.URLEncoder;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -56,7 +65,9 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     private SharedPreferences mSharedPreferences;
     private IFoodAPI mFoodAPI;
     private TextToSpeech tts;
+    private Context mContext = this;
 
+    private Translate mTranslate;
     private GoogleApiClient client;
     private StringBuilder mText = new StringBuilder();
     private boolean mStop = false;
@@ -259,6 +270,14 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         tts.setPitch(SPEECH_PITCH);
         tts.setLanguage(Locale.JAPAN);
 
+        try {
+            mTranslate = new Translate.Builder(AndroidHttp.newCompatibleTransport(),
+                    GsonFactory.getDefaultInstance(), null)
+                    .setApplicationName(getString(R.string.app_name))
+                    .build();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         client = new GoogleApiClient.Builder(this).addApi(AppIndex.API).build();
         reloadFoods();
     }
@@ -394,20 +413,10 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         Window window = getWindow();
         window.setFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED,
                 WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED);
+        window.setFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD,
+                WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD);
 
-        Item item = mAdapter.getItem(0);
-        if (item != null) {
-            Integer expireDateFromToday = item.getExpireDateFromToday();
-            if (expireDateFromToday != null) {
-                String speakText;
-                if (expireDateFromToday == 1) {
-                    speakText = item.getItemName() + "expires in a day";
-                } else {
-                    speakText = item.getItemName() + "expires in" + expireDateFromToday.toString() + "days";
-                }
-                speechText(speakText);
-            }
-        }
+        speakExpirationDate();
     }
 
     /**
@@ -431,6 +440,52 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         super.onStop();
         AppIndex.AppIndexApi.end(client, getIndexApiAction());
         client.disconnect();
+    }
+
+    private void speakExpirationDate() {
+        Item item = mAdapter.getItem(0);
+        if (item != null) {
+            final Integer expireDateFromToday = item.getExpireDateFromToday();
+            if (expireDateFromToday != null) {
+                try {
+                    Translate.Translations.List list = mTranslate.new Translations().list(
+                            Collections.singletonList(item.getItemName()),
+                            "EN");
+                    list.setKey(getApplicationContext().getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA).metaData.getString("api_key"));
+                    Log.d("android Context", getApplicationContext().toString());
+                    Log.d("android packageManager", getPackageManager().toString());
+                    Log.d("android appinfo", getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA).toString());
+                    Log.d("android packname", getPackageName());
+                    Log.d("android metaData", getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA).metaData.toString());
+                    Log.d("androidKey", getApplicationContext().getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA).metaData.getString("api_key"));
+                    AsyncTask<Translate.Translations.List, Void, String> task = new AsyncTask<Translate.Translations.List, Void, String>() {
+                        @Override
+                        protected String doInBackground(Translate.Translations.List... list) {
+                            try {
+                                TranslationsListResponse response = list[0].execute();
+                                String speakText = response.getTranslations().get(0).getTranslatedText();
+                                if (expireDateFromToday == 1) {
+                                    speakText = speakText + " expires in a day";
+                                } else {
+                                    speakText = speakText + " expires in" + expireDateFromToday.toString() + "days";
+                                }
+                                return speakText;
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
+                            return "";
+                        }
+
+                        protected void onPostExecute(String result) {
+                            speechText(result);
+                        }
+                    };
+                    task.execute(list);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 
     private void speechText(String text) {
