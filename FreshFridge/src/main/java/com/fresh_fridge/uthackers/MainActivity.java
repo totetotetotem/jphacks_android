@@ -7,6 +7,10 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.hardware.usb.UsbManager;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -50,7 +54,9 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-public class MainActivity extends Activity implements TextToSpeech.OnInitListener {
+import static java.lang.Math.abs;
+
+public class MainActivity extends Activity implements TextToSpeech.OnInitListener, SensorEventListener {
     private static final String ACTION_USB_PERMISSION =
             "com.fresh_fridge.uthackers.USB_PERMISSION";
     static private String userToken;
@@ -65,7 +71,8 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     private SharedPreferences mSharedPreferences;
     private IFoodAPI mFoodAPI;
     private TextToSpeech tts;
-    private Context mContext = this;
+    private SensorManager mSensorManager;
+    private Sensor mSensor;
 
     private Translate mTranslate;
     private GoogleApiClient client;
@@ -250,6 +257,11 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         // get service
         mSerial = new Physicaloid(this);
 
+        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        if (mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null) {
+            mSensor = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        }
+
         IntentFilter filter = new IntentFilter();
         filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
         filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
@@ -320,6 +332,12 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         super.onStart();
         client.connect();
         AppIndex.AppIndexApi.start(client, getIndexApiAction());
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
     private void reloadFoods() {
@@ -442,6 +460,12 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         client.disconnect();
     }
 
+    @Override
+    public void onPause() {
+        super.onPause();
+        mSensorManager.unregisterListener(this);
+    }
+
     private void speakExpirationDate() {
         Item item;
         try {
@@ -506,6 +530,20 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             }
             tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "speak");
         }
+    }
+
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            if (abs(event.values[2]) > 5) {
+                //            speakExpirationDate();
+            }
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        //stub
     }
 }
 
