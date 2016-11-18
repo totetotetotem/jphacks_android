@@ -443,46 +443,57 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
 
     private void speakExpirationDate() {
-        Item item = mAdapter.getItem(0);
+        Item item;
+        try {
+            item = mAdapter.getItem(0);
+        } catch (IndexOutOfBoundsException e) {
+            e.printStackTrace();
+            return;
+        }
         if (item != null) {
             final Integer expireDateFromToday = item.getExpireDateFromToday();
             if (expireDateFromToday != null) {
-                try {
-                    Translate.Translations.List list = mTranslate.new Translations().list(
-                            Collections.singletonList(item.getItemName()),
-                            "EN");
-                    list.setKey(getApplicationContext().getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA).metaData.getString("api_key"));
-                    Log.d("android Context", getApplicationContext().toString());
-                    Log.d("android packageManager", getPackageManager().toString());
-                    Log.d("android appinfo", getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA).toString());
-                    Log.d("android packname", getPackageName());
-                    Log.d("android metaData", getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA).metaData.toString());
-                    Log.d("androidKey", getApplicationContext().getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA).metaData.getString("api_key"));
-                    AsyncTask<Translate.Translations.List, Void, String> task = new AsyncTask<Translate.Translations.List, Void, String>() {
-                        @Override
-                        protected String doInBackground(Translate.Translations.List... list) {
-                            try {
-                                TranslationsListResponse response = list[0].execute();
-                                String speakText = response.getTranslations().get(0).getTranslatedText();
-                                if (expireDateFromToday == 1) {
-                                    speakText = speakText + " expires in a day";
-                                } else {
-                                    speakText = speakText + " expires in" + expireDateFromToday.toString() + "days";
+                if (tts.getVoice().getLocale().equals(Locale.JAPAN)) {
+                    String speakText = item.getItemName() + "の賞味期限は" + expireDateFromToday.toString() + "日後です";
+                    speechText(speakText);
+                } else {
+                    try {
+                        Translate.Translations.List list = mTranslate.new Translations().list(
+                                Collections.singletonList(item.getItemName()),
+                                "EN");
+                        list.setKey(getApplicationContext().getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA).metaData.getString("api_key"));
+                        Log.d("android Context", getApplicationContext().toString());
+                        Log.d("android packageManager", getPackageManager().toString());
+                        Log.d("android appinfo", getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA).toString());
+                        Log.d("android packname", getPackageName());
+                        Log.d("android metaData", getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA).metaData.toString());
+                        Log.d("androidKey", getApplicationContext().getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA).metaData.getString("api_key"));
+                        AsyncTask<Translate.Translations.List, Void, String> task = new AsyncTask<Translate.Translations.List, Void, String>() {
+                            @Override
+                            protected String doInBackground(Translate.Translations.List... list) {
+                                try {
+                                    TranslationsListResponse response = list[0].execute();
+                                    String speakText = response.getTranslations().get(0).getTranslatedText();
+                                    if (expireDateFromToday == 1) {
+                                        speakText = speakText + " expires in a day";
+                                    } else {
+                                        speakText = speakText + " expires in" + expireDateFromToday.toString() + "days";
+                                    }
+                                    return speakText;
+                                } catch (Exception e) {
+                                    e.printStackTrace();
                                 }
-                                return speakText;
-                            } catch (Exception e) {
-                                e.printStackTrace();
+                                return "";
                             }
-                            return "";
-                        }
 
-                        protected void onPostExecute(String result) {
-                            speechText(result);
-                        }
-                    };
-                    task.execute(list);
-                } catch (Exception e) {
-                    e.printStackTrace();
+                            protected void onPostExecute(String result) {
+                                speechText(result);
+                            }
+                        };
+                        task.execute(list);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         }
