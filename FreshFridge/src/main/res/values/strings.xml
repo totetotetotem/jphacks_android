@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">FreshFridge for Android</string>
+    <string name="placeholder">placeholder</string>
+    <string name="number_placeholder">1</string>
+    <string name="date_placeholder">3日後</string>
+    <string name="Toast_failed">failed to connect servers</string>
+    <string name="qr_description">qr image for register app</string>
+</resources>
