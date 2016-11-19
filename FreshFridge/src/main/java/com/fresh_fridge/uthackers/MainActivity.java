@@ -44,9 +44,11 @@ import com.physicaloid.lib.Physicaloid;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.TimeZone;
 
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
@@ -89,6 +91,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     private static final float SPEECH_RATE = 1.0f;
     private boolean webViewExpanding = false;
     private String initialUrl = "";
+    private long tmpTime;
 
     private Runnable mLoop = new Runnable() {
         @Override
@@ -570,8 +573,12 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     @Override
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-            if (abs(event.values[2]) > 5) {
-                //            speakExpirationDate();
+            if (abs(event.values[2]) > 4 && Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"), Locale.JAPAN).getTimeInMillis() - tmpTime > 15000) {
+                //uncomment this if u use accelerometer to speak
+                /*
+                speakExpirationDate();
+                tmpTime = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"), Locale.JAPAN).getTimeInMillis();
+                */
             }
         }
     }
