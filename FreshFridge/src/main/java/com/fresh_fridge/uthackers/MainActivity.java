@@ -163,55 +163,12 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
 
     @Override
-    public void onDestroy() {
-        mSerial.close();
-        mStop = true;
-        unregisterReceiver(mUsbReceiver);
-        reloadHandler.removeCallbacksAndMessages(null);
-        tts.shutdown();
-        super.onDestroy();
-    }
-
-    private void mainloop() {
-        mStop = false;
-        mRunningMainLoop = true;
-        Toast.makeText(this, "connected", Toast.LENGTH_SHORT).show();
-        new Thread(mLoop).start();
-    }
-
-    void setSerialDataToTextView(byte[] rbuf, int len) {
-        for (int i = 0; i < len; ++i) {
-            mText.append((char) rbuf[i]);
+    public void onInit(int status) {
+        if (TextToSpeech.SUCCESS == status) {
+            Log.d("TTS", "initialized");
+        } else {
+            Log.e("TTS", "faile to initialize");
         }
-    }
-
-    private void openUsbSerial() {
-        if (mSerial == null) {
-            Toast.makeText(this, "cannot open", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        if (!mSerial.isOpened()) {
-            if (!mSerial.open()) {
-                Toast.makeText(this, "cannot open", Toast.LENGTH_SHORT).show();
-                return;
-            } else {
-                Toast.makeText(this, "connected", Toast.LENGTH_SHORT).show();
-            }
-        }
-
-        if (!mRunningMainLoop) {
-            mainloop();
-        }
-
-    }
-
-    protected void onNewIntent(Intent intent) {
-        openUsbSerial();
-    }
-
-    private void detachedUi() {
-        Toast.makeText(this, "disconnect", Toast.LENGTH_SHORT).show();
     }
 
     @Override
@@ -315,14 +272,44 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     }
 
     @Override
-    public void onInit(int status) {
-        if (TextToSpeech.SUCCESS == status) {
-            Log.d("TTS", "initialized");
-        } else {
-            Log.e("TTS", "faile to initialize");
-        }
+    protected void onStart() {
+        super.onStart();
+        client.connect();
+        AppIndex.AppIndexApi.start(client, getIndexApiAction());
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (webViewExpanding) {
+            mListView.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0));
+            mWebView.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 2));
+        }
+        mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        mSensorManager.unregisterListener(this);
+    }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        AppIndex.AppIndexApi.end(client, getIndexApiAction());
+        client.disconnect();
+    }
+
+    @Override
+    public void onDestroy() {
+        mSerial.close();
+        mStop = true;
+        unregisterReceiver(mUsbReceiver);
+        reloadHandler.removeCallbacksAndMessages(null);
+        tts.shutdown();
+        super.onDestroy();
+    }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
@@ -361,21 +348,43 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         }
     }
 
+
     @Override
-    protected void onStart() {
-        super.onStart();
-        client.connect();
-        AppIndex.AppIndexApi.start(client, getIndexApiAction());
+    public void onSensorChanged(SensorEvent event) {
+        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            if (abs(event.values[2]) > 4 && Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"), Locale.JAPAN).getTimeInMillis() - tmpTime > 15000) {
+                //uncomment this if u use accelerometer to speak
+                /*
+                speakExpirationDate();
+                tmpTime = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"), Locale.JAPAN).getTimeInMillis();
+                */
+            }
+        }
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        if (webViewExpanding) {
-            mListView.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0));
-            mWebView.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 2));
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK && mWebView.canGoBack()) {
+            mWebView.goBack();
+            return true;
         }
-        mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
+
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        super.onPrepareOptionsMenu(menu);
+        MenuItem menu2 = menu.findItem(2);
+        MenuItem menu3 = menu.findItem(3);
+        menu2.setVisible(!webViewExpanding);
+        menu3.setVisible(webViewExpanding);
+        return true;
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+        //stub
     }
 
     private void reloadFoods() {
@@ -421,6 +430,48 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
                 Log.d("retrofit", "failed to load data");
             }
         });
+    }
+
+    private void mainloop() {
+        mStop = false;
+        mRunningMainLoop = true;
+        Toast.makeText(this, "connected", Toast.LENGTH_SHORT).show();
+        new Thread(mLoop).start();
+    }
+
+    void setSerialDataToTextView(byte[] rbuf, int len) {
+        for (int i = 0; i < len; ++i) {
+            mText.append((char) rbuf[i]);
+        }
+    }
+
+    private void openUsbSerial() {
+        if (mSerial == null) {
+            Toast.makeText(this, "cannot open", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (!mSerial.isOpened()) {
+            if (!mSerial.open()) {
+                Toast.makeText(this, "cannot open", Toast.LENGTH_SHORT).show();
+                return;
+            } else {
+                Toast.makeText(this, "connected", Toast.LENGTH_SHORT).show();
+            }
+        }
+
+        if (!mRunningMainLoop) {
+            mainloop();
+        }
+
+    }
+
+    protected void onNewIntent(Intent intent) {
+        openUsbSerial();
+    }
+
+    private void detachedUi() {
+        Toast.makeText(this, "disconnect", Toast.LENGTH_SHORT).show();
     }
 
     private void getToken() {
@@ -491,19 +542,6 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
                 .build();
     }
 
-    @Override
-    public void onStop() {
-        super.onStop();
-        AppIndex.AppIndexApi.end(client, getIndexApiAction());
-        client.disconnect();
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
-        mSensorManager.unregisterListener(this);
-    }
-
     private void speakExpirationDate() {
         Item item;
         try {
@@ -568,44 +606,6 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             }
             tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, "speak");
         }
-    }
-
-    @Override
-    public void onSensorChanged(SensorEvent event) {
-        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-            if (abs(event.values[2]) > 4 && Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"), Locale.JAPAN).getTimeInMillis() - tmpTime > 15000) {
-                //uncomment this if u use accelerometer to speak
-                /*
-                speakExpirationDate();
-                tmpTime = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"), Locale.JAPAN).getTimeInMillis();
-                */
-            }
-        }
-    }
-
-    @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_BACK && mWebView.canGoBack()) {
-            mWebView.goBack();
-            return true;
-        }
-
-        return super.onKeyDown(keyCode, event);
-    }
-
-    @Override
-    public boolean onPrepareOptionsMenu(Menu menu) {
-        super.onPrepareOptionsMenu(menu);
-        MenuItem menu2 = menu.findItem(2);
-        MenuItem menu3 = menu.findItem(3);
-        menu2.setVisible(!webViewExpanding);
-        menu3.setVisible(webViewExpanding);
-        return true;
-    }
-
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        //stub
     }
 }
 
