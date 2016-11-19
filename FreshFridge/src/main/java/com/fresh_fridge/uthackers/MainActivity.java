@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -19,12 +20,15 @@ import android.os.Bundle;
 import android.os.PowerManager;
 import android.speech.tts.TextToSpeech;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.Toast;
 
@@ -39,9 +43,7 @@ import com.google.api.services.translate.model.TranslationsListResponse;
 import com.physicaloid.lib.Physicaloid;
 
 import java.io.UnsupportedEncodingException;
-import java.lang.reflect.Array;
 import java.net.URLEncoder;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -68,8 +70,8 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     private ItemAdapter mAdapter;
     private String familyToken;
     private WebView mWebView;
+    private ListView mListView;
     private SharedPreferences mSharedPreferences;
-    private IFoodAPI mFoodAPI;
     private TextToSpeech tts;
     private SensorManager mSensorManager;
     private Sensor mSensor;
@@ -81,8 +83,11 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     private boolean mRunningMainLoop = false;
     private static final int MENU_QR_OPEN = 0;
     private static final int MENU_RELOAD_WEB = 1;
+    private static final int MENU_EXPAND_WEBVIEW = 2;
+    private static final int MENU_REDUCE_WEBVIEW = 3;
     private static final float SPEECH_PITCH = 1.0f;
     private static final float SPEECH_RATE = 1.0f;
+    private boolean webViewExpanding = false;
     private String initialUrl = "";
 
     private Runnable mLoop = new Runnable() {
@@ -224,12 +229,24 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         mSharedPreferences = getSharedPreferences("token", MODE_PRIVATE);
         userToken = mSharedPreferences.getString("user_token", "NO_VALID_USER_TOKEN");
         familyToken = mSharedPreferences.getString("family_token", "NO_VALID_FAMILY_TOKEN");
+        webViewExpanding = mSharedPreferences.getBoolean("webViewExpanding", false);
 
         //view enable
-        ListView mListView = (ListView) findViewById(R.id.foodlistView);
+        mListView = (ListView) findViewById(R.id.foodlistView);
         mAdapter = new ItemAdapter(this);
         mListView.setAdapter(mAdapter);
-
+        if (!webViewExpanding) {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+            mListView.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+            ViewGroup.MarginLayoutParams mlp = (ViewGroup.MarginLayoutParams) mListView.getLayoutParams();
+            mlp.setMargins(20, 20, 20, 20);
+            mListView.setLayoutParams(mlp);
+            mWebView.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1));
+        } else {
+            setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+            mListView.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0));
+            mWebView.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 2));
+        }
         //http logging
         HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
         logging.setLevel(HttpLoggingInterceptor.Level.BODY);
@@ -244,7 +261,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
                 .build();
 
         final ITokenAPI mTokenAPI = retrofit.create(ITokenAPI.class);
-        mFoodAPI = retrofit.create(IFoodAPI.class);
+        IFoodAPI mFoodAPI = retrofit.create(IFoodAPI.class);
 
         getTokenCall = mTokenAPI.getToken(new PostBody());
         itemCall = mFoodAPI.getItemList(userToken);
@@ -308,19 +325,33 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     public boolean onCreateOptionsMenu(Menu menu) {
         menu.add(Menu.NONE, MENU_QR_OPEN, Menu.NONE, "Show QR");
         menu.add(Menu.NONE, MENU_RELOAD_WEB, Menu.NONE, "Return to Search");
+        menu.add(Menu.NONE, MENU_EXPAND_WEBVIEW, Menu.NONE, "expand recipe");
+        menu.add(Menu.NONE, MENU_REDUCE_WEBVIEW, Menu.NONE, "reduce recipe");
         return super.onCreateOptionsMenu(menu);
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
+        SharedPreferences.Editor editor = mSharedPreferences.edit();
         switch (item.getItemId()) {
             case MENU_QR_OPEN:
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
                 Intent intent = new Intent(MainActivity.this, com.fresh_fridge.uthackers.QRCodeActivity.class);
                 intent.putExtra("familyToken", familyToken);
                 startActivity(intent);
                 return true;
             case MENU_RELOAD_WEB:
                 mWebView.loadUrl(initialUrl);
+                return true;
+            case MENU_EXPAND_WEBVIEW:
+                editor.putBoolean("webViewExpanding", true);
+                editor.apply();
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+                return true;
+            case MENU_REDUCE_WEBVIEW:
+                editor.putBoolean("webViewExpanding", false);
+                editor.apply();
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
                 return true;
             default:
                 return false;
@@ -337,6 +368,10 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
     @Override
     protected void onResume() {
         super.onResume();
+        if (webViewExpanding) {
+            mListView.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 0));
+            mWebView.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 2));
+        }
         mSensorManager.registerListener(this, mSensor, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
@@ -539,6 +574,26 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
                 //            speakExpirationDate();
             }
         }
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK && mWebView.canGoBack()) {
+            mWebView.goBack();
+            return true;
+        }
+
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        super.onPrepareOptionsMenu(menu);
+        MenuItem menu2 = menu.findItem(2);
+        MenuItem menu3 = menu.findItem(3);
+        menu2.setVisible(!webViewExpanding);
+        menu3.setVisible(webViewExpanding);
+        return true;
     }
 
     @Override
